@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>TLSY AIOps 智能集成平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg-light: #f4f7f9; --sidebar-bg: #ffffff; --card-bg: #ffffff; --text-main: #2c3e50; --text-muted: #8b9eb0; --primary: #1890ff; --danger: #ff4d4f; --success: #52c41a; --border-color: #e8f0fe; }
+        body { background-color: var(--bg-light); color: var(--text-main); height: 100vh; overflow: hidden; margin: 0; display: flex; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;}
+        .sidebar { width: 260px; background-color: var(--sidebar-bg); height: 100vh; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; box-shadow: 2px 0 8px rgba(0,0,0,0.02); z-index: 10; }
+        .logo-area { padding: 22px 20px; font-size: 20px; font-weight: 700; color: var(--primary); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; }
+        .menu-list { list-style: none; padding: 15px 0; margin: 0; flex-grow: 1; overflow-y: auto; }
+        .menu-item { padding: 14px 24px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 14px; transition: all 0.2s ease; font-size: 15px; font-weight: 500; margin: 4px 12px; border-radius: 8px; }
+        .menu-item:hover, .menu-item.active { background-color: #e6f7ff; color: var(--primary); }
+        .menu-item i { width: 20px; text-align: center; font-size: 16px; }
+        .main-content { flex-grow: 1; height: 100vh; overflow-y: auto; padding: 24px 32px; box-sizing: border-box; }
+        .page-panel { display: none; animation: fadeIn 0.4s ease-out; }
+        .page-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .stat-card { background: var(--card-bg); border-radius: 12px; padding: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.03); position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--primary); }
+        .stat-card.danger::before { background: var(--danger); }
+        .stat-card.success::before { background: var(--success); }
+        .stat-value { font-size: 28px; font-weight: 700; margin-top: 8px; color: var(--text-main); }
+        .light-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .light-card h5 { font-weight: 600; color: var(--text-main); margin-bottom: 16px; font-size: 16px;}
+        .grafana-container { height: 450px; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid #f0f0f0;}
+        .grafana-container iframe { width: 100%; height: 100%; border: none; }
+        .alert-item { background: #fff; border-left: 4px solid var(--danger); padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border: 1px solid #f0f0f0; border-left-width: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        .alert-item:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.06); border-color: #d9d9d9; border-left-color: var(--danger); }
+        .alert-item.info { border-left-color: var(--primary); }
+        .alert-item.info:hover { border-left-color: var(--primary); }
+        ::-webkit-scrollbar { width: 8px; height: 8px;}
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        .fullscreen-iframe { width: 100%; height: calc(100vh - 100px); border: 1px solid #e0e0e0; border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .page-title { color: var(--text-main); font-weight: 700; margin-bottom: 24px; font-size: 24px;}
+        #ai-report h1, #ai-report h2, #ai-report h3 { font-size: 18px; margin-top: 20px; font-weight: 700; color: var(--primary);}
+        #ai-report p { margin-bottom: 12px; line-height: 1.6; }
+        #ai-report pre { background: #f6f8fa; border: 1px solid #e1e4e8; color: #24292e; padding: 12px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo-area"><i class="fa-solid fa-network-wired"></i> AIOps 平台</div>
+        <ul class="menu-list">
+            <li class="menu-item active" onclick="switchPage('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> 全局概览</li>
+            <li class="menu-item" onclick="switchPage('monitor', this)"><i class="fa-solid fa-desktop"></i> 监控大盘</li>
+            <li class="menu-item" onclick="switchPage('diagnosis', this)"><i class="fa-solid fa-robot"></i> 智能诊断</li>
+            <li class="menu-item" onclick="switchPage('chatbot', this)"><i class="fa-solid fa-comments"></i> AI 助手对话</li>
+            <li class="menu-item" onclick="switchPage('automation', this)"><i class="fa-solid fa-code-branch"></i> 自动化执行</li>
+        </ul>
+        <div style="padding: 20px; border-top: 1px solid var(--border-color); color: var(--text-muted); font-size: 13px; background: #fafbfc;">
+            <div class="mb-2"><i class="fa-solid fa-circle-check" style="color: var(--success);"></i> 系统运行正常</div>
+            <div><i class="fa-solid fa-user-circle"></i> 当前用户: Admin</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="page-dashboard" class="page-panel active">
+            <h2 class="page-title">☀️ 欢迎回来，运维工程师</h2>
+            <div class="row mb-4">
+                <div class="col-md-4"><div class="stat-card"><div style="color: var(--text-muted); font-size: 14px; font-weight: 500;">活跃网络设备</div><div class="stat-value">3 <span style="font-size: 14px; font-weight: 400; color: var(--text-muted);">台</span></div></div></div>
+                <div class="col-md-4"><div class="stat-card danger"><div style="color: var(--text-muted); font-size: 14px; font-weight: 500;">今日异常告警</div><div class="stat-value" id="alert-count" style="color: var(--danger);">0 <span style="font-size: 14px; font-weight: 400; color: var(--text-muted);">条</span></div></div></div>
+                <div class="col-md-4"><div class="stat-card success"><div style="color: var(--text-muted); font-size: 14px; font-weight: 500;">大模型状态</div><div class="stat-value" style="color: var(--success); font-size: 22px;">Qwen2.5 在线</div></div></div>
+            </div>
+            <div class="row">
+                <div class="col-md-6"><div class="light-card" style="height: 540px;"><h5><i class="fa-solid fa-bell" style="color: var(--danger);"></i> 近期设备告警流</h5><div id="overview-alert-list" class="mt-3" style="height: 440px; overflow-y: auto; padding-right: 10px;"></div></div></div>
+                <div class="col-md-6"><div class="light-card" style="height: 540px;"><h5><i class="fa-solid fa-microchip" style="color: var(--primary);"></i> 核心节点监控摘要</h5><div class="grafana-container" style="height: 440px; margin-top: 15px;">
+                    <iframe id="grafana-panel-mini" src=""></iframe>
+                </div></div></div>
+            </div>
+        </div>
+
+        <div id="page-monitor" class="page-panel">
+            <h2 class="page-title">📊 全栈性能监控大盘</h2>
+            <div class="light-card p-0" style="border:none; box-shadow: none;"><div class="grafana-container" style="height: calc(100vh - 120px);">
+                <iframe id="grafana-panel-full" src=""></iframe>
+            </div></div>
+        </div>
+
+        <div id="page-diagnosis" class="page-panel">
+            <h2 class="page-title">🧠 AI 智能故障诊断中心</h2>
+            <div class="row">
+                <div class="col-md-4"><div class="light-card" style="height: calc(100vh - 120px); overflow-y: auto;"><h5>告警列表 (点击分析)</h5><div id="diagnosis-alert-list" class="mt-3"></div></div></div>
+                <div class="col-md-8"><div class="light-card" style="height: calc(100vh - 120px); overflow-y: auto; background-color: #fafbfc;">
+                    <div id="ai-loading" class="text-center my-5" style="display: none;"><div class="spinner-border" style="color: var(--primary);" role="status"></div><p class="mt-3 text-muted">大模型正在深度推理日志，请稍候...</p></div>
+                    <div id="ai-report" style="display: none; padding: 20px; background: #fff; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 8px rgba(0,0,0,0.02);"></div>
+                    <div id="ai-empty" class="text-center" style="margin-top: 150px; color: var(--text-muted);"><i class="fa-solid fa-robot" style="font-size: 60px; margin-bottom: 20px; color: #d1d5db;"></i><h4>请在左侧选择一条告警</h4><p>Dify 工作流引擎将结合本地大模型生成专业排障方案</p></div>
+                </div></div>
+            </div>
+        </div>
+
+        <div id="page-chatbot" class="page-panel">
+            <h2 class="page-title">🤖 AIOps 智能专家对话</h2>
+            <iframe id="dify-chat-panel" class="fullscreen-iframe" src="" allow="microphone"></iframe>
+        </div>
+
+        <div id="page-automation" class="page-panel">
+            <h2 class="page-title">⚙️ 自动化执行与 MCP 操控</h2>
+            <div class="light-card text-center" style="padding: 80px 20px;"><i class="fa-solid fa-server" style="font-size: 60px; color: var(--primary); margin-bottom: 20px;"></i><h4 style="color: var(--text-main);">MCP 协议控制通道已就绪</h4><p class="text-muted mt-3" style="font-size: 15px;">系统已通过自研 FastAPI 代理与底层 EVE-NG 虚拟化平台建立连接。大模型可通过 MCP 工具直接下发指令实现网络自愈。</p><button class="btn btn-primary mt-4" style="padding: 10px 24px; border-radius: 6px; font-weight: 500;" onclick="alert('模拟发送指令：display interface brief')">模拟下发巡检命令</button></div>
+        </div>
+    </div>
+
+    <script>
+        // 动态获取当前页面的 IP，用于拼接 iframe 地址
+        const currentHost = window.location.hostname;
+        // 这里将 Grafana 和 Dify 的端口固定，IP 动态取自当前浏览器
+        const grafanaBaseUrl = `http://${currentHost}:3001/d/rYdddlPWk/node-exporter-full?from=now-5m&to=now&timezone=browser&var-ds_prometheus=PBFA97CFB590B2093&var-job=node-exporter&var-nodename=42d7586c0e02&var-node=node-exporter:9100&kiosk&theme=light`;
+        
+        // 自动给 iframe 注入地址（防止硬编码 IP 上传到 GitHub）
+        document.getElementById('grafana-panel-mini').src = `${grafanaBaseUrl}&panelId=3`;
+        document.getElementById('grafana-panel-full').src = `${grafanaBaseUrl}&refresh=5s`;
+        // Dify 聊天窗口也做动态替换（如果是分享链接，可以保留原样，这里假设你用的是相对路径或者你想动态获取）
+        // 为简单起见，这里直接保留你的 Dify iframe 地址，因为这是前端公开的聊天链接，不算是核心 API 密钥。
+        document.getElementById('dify-chat-panel').src = `http://${currentHost}:3000/chatbot/OF8sZI2swBD4BtMY`;
+
+        function switchPage(pageId, element) {
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.page-panel').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('page-' + pageId).classList.add('active');
+        }
+
+        async function fetchAlerts() {
+            try {
+                const response = await fetch('/api/alerts');
+                const alerts = await response.json();
+                document.getElementById('alert-count').innerText = alerts.length;
+                const renderList = (listId, isDiagnosis) => {
+                    const list = document.getElementById(listId);
+                    list.innerHTML = '';
+                    if(alerts.length === 0) { list.innerHTML = '<p class="text-muted text-center mt-4">暂无活跃告警</p>'; return; }
+                    alerts.forEach(alert => {
+                        const div = document.createElement('div');
+                        div.className = `alert-item ${alert.level === 'INFO' ? 'info' : ''}`;
+                        div.innerHTML = `<div class="d-flex justify-content-between"><strong style="color: var(--text-main);">${alert.device}</strong><small style="color: var(--text-muted);">${alert.time}</small></div><div class="mt-2 text-truncate" style="color: #666; font-size: 13px;">${alert.msg}</div>`;
+                        if(isDiagnosis) div.onclick = () => triggerAI(alert.msg);
+                        list.appendChild(div);
+                    });
+                };
+                renderList('overview-alert-list', false);
+                renderList('diagnosis-alert-list', true);
+            } catch (error) { console.error("获取告警失败:", error); }
+        }
+
+        async function triggerAI(alertMsg) {
+            document.getElementById('ai-empty').style.display = 'none';
+            document.getElementById('ai-report').style.display = 'none';
+            document.getElementById('ai-loading').style.display = 'block';
+            try {
+                const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg: alertMsg }) });
+                const result = await response.json();
+                document.getElementById('ai-loading').style.display = 'none';
+                document.getElementById('ai-report').style.display = 'block';
+                if (result.status === 'success') {
+                    document.getElementById('ai-report').innerHTML = marked.parse(result.report);
+                } else {
+                    document.getElementById('ai-report').innerHTML = `<p style="color: var(--danger);">分析失败: ${result.message}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('ai-loading').style.display = 'none';
+                document.getElementById('ai-report').style.display = 'block';
+                document.getElementById('ai-report').innerHTML = `<p style="color: var(--danger);">网络请求异常，请检查后端服务。</p>`;
+            }
+        }
+
+        window.onload = () => { fetchAlerts(); setInterval(fetchAlerts, 10000); };
+    </script>
+</body>
+</html>

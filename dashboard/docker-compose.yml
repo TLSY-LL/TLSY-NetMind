@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  web-dashboard:
+    build: .
+    container_name: aiops-dashboard
+    restart: always
+    ports: ["8000:8000"]
+    env_file: .env
+    command: python3 dashboard_app.py
+    networks: [lac_net]
+
+  webhook-server:
+    build: .
+    container_name: aiops-webhook
+    restart: always
+    ports: ["5005:5005"]
+    env_file: .env
+    command: python3 webhook_server.py
+    networks: [lac_net]
+
+  syslog-listener:
+    build: .
+    container_name: aiops-syslog
+    restart: always
+    ports: ["514:514/udp"]
+    env_file: .env
+    command: python3 listen_syslog.py
+    networks: [lac_net]
+
+networks:
+  lac_net:
+    external: true

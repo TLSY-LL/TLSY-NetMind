@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: dify-db
+    restart: always
+    environment:
+      POSTGRES_USER: dify
+      POSTGRES_PASSWORD: dify123456
+      POSTGRES_DB: dify
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - lac_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dify -d dify"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: dify-redis
+    command: redis-server --requirepass dify-redis-password
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - lac_net
+
+  weaviate:
+    image: semitechnologies/weaviate:1.27.0
+    container_name: dify-weaviate
+    restart: always
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      CLUSTER_HOSTNAME: 'node1'
+      # --- 核心修复：开启 API Key 认证，并与 Dify 对齐 ---
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'false'
+      AUTHENTICATION_APIKEY_ENABLED: 'true'
+      AUTHENTICATION_APIKEY_ALLOWED_KEYS: 'dify-fake-key'
+      AUTHENTICATION_APIKEY_USERS: 'dify-user'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    networks:
+      - lac_net
+
+  sandbox:
+    image: langgenius/dify-sandbox:0.2.15
+    container_name: dify-sandbox
+    restart: always
+    environment:
+      API_KEY: 'dify-sandbox-key-2026'
+    networks:
+      - lac_net
+
+  api:
+    image: langgenius/dify-api:0.15.3
+    container_name: dify-api
+    restart: always
+    ports:
+      - "5001:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      weaviate:
+        condition: service_started
+    environment:
+      MODE: api
+      STORAGE_TYPE: opendal
+      OPENDAL_SCHEME: fs
+      OPENDAL_FS_ROOT: /app/api/storage
+      SECRET_KEY: CHANGE_ME_TO_A_SECURE_KEY
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: dify
+      DB_PASSWORD: dify123456
+      DB_DATABASE: dify
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: dify-redis-password
+      REDIS_DB: 0
+      CELERY_BROKER_URL: redis://:dify-redis-password@redis:6379/1
+      VECTOR_STORE: weaviate
+      WEAVIATE_ENDPOINT: http://weaviate:8080
+      WEAVIATE_API_KEY: "dify-fake-key"
+      SANDBOX_API_KEY: 'dify-sandbox-key-2026'
+      # --- 核心修复：补齐代码执行节点的通信暗号 ---
+      CODE_EXECUTION_ENDPOINT: http://sandbox:8194
+      CODE_EXECUTION_API_KEY: 'dify-sandbox-key-2026'
+      CONSOLE_CORS_ALLOW_ORIGINS: 'http://YOUR_IP:3000'
+      WEB_API_CORS_ALLOW_ORIGINS: 'http://YOUR_IP:3000'
+      CONSOLE_API_URL: http://YOUR_IP:5001
+      CONSOLE_WEB_URL: http://YOUR_IP:3000
+      APP_API_URL: http://YOUR_IP:5001
+      APP_WEB_URL: http://YOUR_IP:3000
+    volumes:
+      - app_data:/app/api/storage
+    networks:
+      - lac_net
+
+  worker:
+    image: langgenius/dify-api:0.15.3
+    container_name: dify-worker
+    restart: always
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      MODE: worker
+      STORAGE_TYPE: opendal
+      OPENDAL_SCHEME: fs
+      OPENDAL_FS_ROOT: /app/api/storage
+      SECRET_KEY: CHANGE_ME_TO_A_SECURE_KEY
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: dify
+      DB_PASSWORD: dify123456
+      DB_DATABASE: dify
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: dify-redis-password
+      REDIS_DB: 0
+      CELERY_BROKER_URL: redis://:dify-redis-password@redis:6379/1
+      VECTOR_STORE: weaviate
+      WEAVIATE_ENDPOINT: http://weaviate:8080
+      WEAVIATE_API_KEY: "dify-fake-key"
+      SANDBOX_API_KEY: 'dify-sandbox-key-2026'
+      # --- 核心修复：补齐代码执行节点的通信暗号 ---
+      CODE_EXECUTION_ENDPOINT: http://sandbox:8194
+      CODE_EXECUTION_API_KEY: 'dify-sandbox-key-2026'
+    volumes:
+      - app_data:/app/api/storage
+    networks:
+      - lac_net
+
+  web:
+    image: langgenius/dify-web:0.15.3
+    container_name: dify-web
+    restart: always
+    mem_limit: 2000m
+    mem_reservation: 1000m
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: --max-old-space-size=2048
+      CONSOLE_API_URL: http://YOUR_IP:5001
+      APP_API_URL: http://YOUR_IP:5001
+    networks:
+      - lac_net
+
+volumes:
+  db_data:
+  redis_data:
+  app_data:
+  weaviate_data:
+
+networks:
+  lac_net:
+    external: true

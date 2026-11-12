@@ -1,0 +1,9 @@
+.env
+**/.env
+__pycache__/
+*.py[cod]
+venv/
+data/
+*.log
+dify-plugin-linux-amd64
+ollama-linux-amd64.tar.zst
