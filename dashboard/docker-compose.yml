@@ -1,11 +1,16 @@
 version: '3.8'
+
 services:
   web-dashboard:
     build: .
     container_name: aiops-dashboard
     restart: always
-    ports: ["8000:8000"]
-    env_file: .env
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - LOKI_URL=http://loki:3100/loki/api/v1/query_range
     command: python3 dashboard_app.py
     networks: [lac_net]
 
@@ -13,8 +18,12 @@ services:
     build: .
     container_name: aiops-webhook
     restart: always
-    ports: ["5005:5005"]
-    env_file: .env
+    ports:
+      - "5005:5005"
+    env_file:
+      - .env
+    environment:
+      - LOKI_URL=http://loki:3100/loki/api/v1/query_range
     command: python3 webhook_server.py
     networks: [lac_net]
 
@@ -22,9 +31,13 @@ services:
     build: .
     container_name: aiops-syslog
     restart: always
-    ports: ["514:514/udp"]
-    env_file: .env
-    command: python3 listen_syslog.py
+    ports:
+      - "514:514/udp"
+    env_file:
+      - .env
+    environment:
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
+    command: python3 -u listen_syslog.py
     networks: [lac_net]
 
 networks:

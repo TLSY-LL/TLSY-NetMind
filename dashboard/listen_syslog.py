@@ -5,7 +5,7 @@ import json
 
 UDP_IP = "0.0.0.0"
 UDP_PORT = 514
-LOKI_URL = "http://127.0.0.1:3100/loki/api/v1/push"
+LOKI_URL = "http://loki:3100/loki/api/v1/push"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))

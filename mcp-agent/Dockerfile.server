@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+WORKDIR /app
+# 把源码拷进去并在构建阶段直接安装，这样启动时就极快
+COPY ./eveng-src /app/eveng-src
+RUN pip install --no-cache-dir /app/eveng-src -i https://pypi.tuna.tsinghua.edu.cn/simple
+WORKDIR /app
+# 使用模块方式启动，绝对能找到命令
+CMD ["python3", "-m", "mcp_eveng", "--http"]

@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 import uvicorn
 import json
+import os
 from fastmcp import Client
 
 app = FastAPI()
-MCP_URL = "http://<WINDOWS_IP>:8000/mcp" # TODO: 改成你 Windows 上 eNSP MCP 的地址
+MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp")
 
 async def call_mcp(tool_name: str, arguments: dict):
     async with Client(MCP_URL) as client:
@@ -17,40 +18,40 @@ async def call_mcp(tool_name: str, arguments: dict):
                 return text_data
         return None
 
-@app.get("/v1/ensp/labs")
-async def get_labs():
-    result = await call_mcp("list_labs", {})
-    return {"status": "success", "data": result}
-
-@app.get("/v1/ensp/nodes/{lab_path:path}")
-async def get_nodes(lab_path: str):
-    if not lab_path.startswith("/"):
-        lab_path = "/" + lab_path
-    result = await call_mcp("list_lab_nodes", {"lab_path": lab_path})
-    return {"status": "success", "data": result}
-
-@app.post("/v1/ensp/nodes/{lab_path:path}/start")
+@app.post("/v1/eveng/nodes/{lab_path:path}/start")
 async def start_nodes(lab_path: str):
     if not lab_path.startswith("/"):
         lab_path = "/" + lab_path
-    
+
     nodes_data = await call_mcp("list_lab_nodes", {"lab_path": lab_path})
-    try:
-        # 修复点：直接获取 data 列表，如果没有则返回空列表
-        nodes_list = nodes_data.get("data", []) if isinstance(nodes_data, dict) else []
+    
+    # 如果底层直接返回了字典，且包含 data
+    if isinstance(nodes_data, dict) and "data" in nodes_data:
+        raw_data = nodes_data["data"]
         
-        if not nodes_list:
-            return {"status": "error", "message": "实验中没有找到任何节点，请先在 EVE-NG 中添加设备"}
-        
+        # 如果 data 是字典（类似 {"1": {...}, "2": {...}}）
+        if isinstance(raw_data, dict):
+            nodes_list = list(raw_data.values())
+        # 如果 data 是列表（类似 [{...}, {...}]）
+        elif isinstance(raw_data, list):
+            nodes_list = raw_data
+        else:
+            return {"status": "error", "message": "data 字段格式未知", "raw": raw_data}
+
         started = []
         for node in nodes_list:
-            node_id = node.get("id")
-            if node_id:
+            if isinstance(node, dict) and "id" in node:
+                node_id = node["id"]
                 await call_mcp("start_node", {"lab_path": lab_path, "node_id": node_id})
                 started.append(node_id)
-        return {"status": "success", "message": f"已发送启动指令，节点 ID: {started}"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+        
+        if started:
+            return {"status": "success", "message": f"已发送启动指令，节点 ID: {started}"}
+        else:
+            return {"status": "error", "message": "没有找到包含 id 的节点信息"}
+            
+    return {"status": "error", "message": "底层返回格式不对或报错", "raw": nodes_data}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8009)
+    uvicorn.run(app, host="0.0.0.0", port=8008)
+

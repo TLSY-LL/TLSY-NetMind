@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: mcp-server
+    restart: always
+    network_mode: "host" # 使用宿主机网络
+    environment:
+      - EVENG_HOST=192.168.148.80
+      - EVENG_PORT=80
+      - EVENG_PROTOCOL=http
+      - EVENG_USERNAME=admin
+      - EVENG_PASSWORD=eve
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - MCP_ALLOWED_HOSTS=localhost:*,mcp-server:*,mcp-agent:*,YOUR_IP:*
+
+  mcp-agent:
+    build: .
+    container_name: mcp-agent
+    restart: always
+    network_mode: "host" # 使用宿主机网络
+    environment:
+      - MCP_URL=http://localhost:8000/mcp
