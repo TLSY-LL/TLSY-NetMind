@@ -4,8 +4,10 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: monitor-prometheus
+    restart: always
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus             # 新增：Prometheus 时序数据持久化
     ports:
       - "9090:9090"
     networks:
@@ -23,8 +25,10 @@ services:
   loki:
     image: grafana/loki:2.9.2
     container_name: monitor-loki
+    restart: always
     volumes:
       - ./loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/tmp/loki                     # 新增：Loki 日志数据持久化 (对应你配置文件里的 /tmp/loki)
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"
@@ -34,11 +38,15 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: monitor-grafana
+    restart: always
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana           # 新增：Grafana 配置与告警规则持久化
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
     ports:
       - "3001:3000"
     depends_on:
@@ -50,3 +58,8 @@ services:
 networks:
   lac_net:
     external: true
+
+volumes:
+  prometheus_data:                              # 声明卷
+  loki_data:                                    # 声明卷
+  grafana_data:                                 # 声明卷

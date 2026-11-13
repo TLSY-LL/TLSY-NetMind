@@ -7,14 +7,20 @@ from dotenv import load_dotenv
 load_dotenv()
 app = Flask(__name__)
 
+# Dify 配置
 DIFY_API_KEY = os.getenv("DIFY_API_KEY")
+DIFY_CHAT_KEY = os.getenv("DIFY_CHAT_KEY")
 DIFY_URL = os.getenv("DIFY_URL")
+# 聊天助手的 API 地址通常是工作流地址的 /chat-messages
+DIFY_CHAT_URL = DIFY_URL.replace("/workflows/run", "/chat-messages") if DIFY_URL else ""
+
 LOKI_URL = os.getenv("LOKI_URL")
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# --- 原有：获取告警流 ---
 @app.route('/api/alerts', methods=['GET'])
 def get_alerts():
     now = int(time.time() * 10**9)
@@ -40,6 +46,7 @@ def get_alerts():
     except Exception as e:
         return jsonify([])
 
+# --- 原有：智能诊断工作流分析 ---
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     data = request.json
@@ -51,6 +58,29 @@ def analyze():
         if response.status_code == 200:
             return jsonify({"status": "success", "report": response.json()["data"]["outputs"]["text"]})
         return jsonify({"status": "error", "message": "Dify API Error"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+# --- 新增：原生 AI 助手聊天接口 ---
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    user_msg = request.json.get("message")
+    if not DIFY_CHAT_KEY:
+        return jsonify({"status": "error", "message": "环境变量中未配置 DIFY_CHAT_KEY"})
+    
+    payload = {
+        "inputs": {},
+        "query": user_msg,
+        "response_mode": "blocking",
+        "user": "dashboard_user"
+    }
+    headers = {"Authorization": f"Bearer {DIFY_CHAT_KEY}", "Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(DIFY_CHAT_URL, headers=headers, json=payload, timeout=600)
+        if response.status_code == 200:
+            return jsonify({"status": "success", "answer": response.json().get("answer", "")})
+        return jsonify({"status": "error", "message": f"Dify API Error: {response.status_code}"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
